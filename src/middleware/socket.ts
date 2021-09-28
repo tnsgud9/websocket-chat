@@ -4,7 +4,14 @@ import webSocket, { Socket } from "socket.io";
 import { ChatEvent } from "./ChatEvent";
 
 let io: webSocket.Server;
-const channels = new Map();
+type messageType = {
+  message: string;
+  user: string;
+  date: string;
+};
+type roomType = { id: string; history: messageType[] };
+const channel = new Map<string, messageType[]>();
+let chatHistory: messageType[] | undefined;
 export const initWebSocket = (server: Server): void => {
   io = new webSocket.Server(server, {
     path: "/socketchat",
@@ -14,11 +21,14 @@ export const initWebSocket = (server: Server): void => {
   });
   io.on(ChatEvent.CONNECTION, (socket: webSocket.Socket) => {
     console.log("conntected: ", socket.id);
-    console.log(socket.handshake.query.user);
+    console.log("entered:", socket.handshake.query.user);
     const userId = socket.handshake.query.user;
-    if (channels.get(userId) === undefined) {
-      channels.set(userId, []);
+    // Get Chat History init
+    if (channel.get(`${userId}`) === undefined) {
+      channel.set(`${userId}`, []);
     }
+    chatHistory = channel.get(`${userId}`);
+    io.to(`${userId}`).emit(ChatEvent.CHAT_HISTROY, chatHistory);
     socket.join(`${userId}`);
     socket.on(ChatEvent.NEW_MESSAGE, (message: string) => {
       console.log("New Message : ", message);
