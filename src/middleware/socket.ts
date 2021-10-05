@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer, Server } from "http";
 import webSocket, { Socket } from "socket.io";
-import { ChatEvent } from "./ChatEvent";
+import { ChatEvent } from "./model/ChatEvent";
 
 let io: webSocket.Server;
 type messageType = {
@@ -9,9 +9,10 @@ type messageType = {
   user: string;
   date: string;
 };
-type roomType = { id: string; history: messageType[] };
-const channel = new Map<string, messageType[]>();
+
+const room = new Map<string, messageType[]>();
 let chatHistory: messageType[] | undefined;
+
 export const initWebSocket = (server: Server): void => {
   io = new webSocket.Server(server, {
     path: "/socketchat",
@@ -24,12 +25,12 @@ export const initWebSocket = (server: Server): void => {
     console.log("entered:", socket.handshake.query.user);
     const userId = socket.handshake.query.user;
     // Get Chat History init
-    if (channel.get(`${userId}`) === undefined) {
-      channel.set(`${userId}`, []);
-    }
-    chatHistory = channel.get(`${userId}`);
+    if (room.get(`${userId}`) === undefined) {
+      room.set(`${userId}`, []);
+    } else chatHistory = room.get(`${userId}`);
     io.to(`${userId}`).emit(ChatEvent.CHAT_HISTROY, chatHistory);
     socket.join(`${userId}`);
+
     socket.on(ChatEvent.NEW_MESSAGE, (message: string) => {
       console.log("New Message : ", message);
       //Verify 확인해 되면
