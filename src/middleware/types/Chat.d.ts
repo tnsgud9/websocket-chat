@@ -1,10 +1,12 @@
 type roomType = {
-  userList: string[];
-  messageType: messageType[];
+  managerId: string;
+  users: string[];
+  messages: messageType[];
 };
 
 type messageType = {
-  message: string;
+  context: string;
+  isImage: boolean;
   user: string;
   date: string;
 };

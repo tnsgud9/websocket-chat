@@ -4,14 +4,9 @@ import webSocket, { Socket } from "socket.io";
 import { ChatEvent } from "./model/ChatEvent";
 
 let io: webSocket.Server;
-type messageType = {
-  message: string;
-  user: string;
-  date: string;
-};
 
-const room = new Map<string, messageType[]>();
-let chatHistory: messageType[] | undefined;
+const rooms = new Map<string, roomType[]>();
+let chatHistory: messageType[];
 
 export const initWebSocket = (server: Server): void => {
   io = new webSocket.Server(server, {
@@ -25,9 +20,9 @@ export const initWebSocket = (server: Server): void => {
     console.log("entered:", socket.handshake.query.user);
     const userId = socket.handshake.query.user;
     // Get Chat History init
-    if (room.get(`${userId}`) === undefined) {
-      room.set(`${userId}`, []);
-    } else chatHistory = room.get(`${userId}`);
+    if (rooms.get(`${userId}`) === undefined) {
+      rooms.set(`${userId}`, []);
+    } else chatHistory = rooms.get(`${userId}`);
     io.to(`${userId}`).emit(ChatEvent.CHAT_HISTROY, chatHistory);
     socket.join(`${userId}`);
 
