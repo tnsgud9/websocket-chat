@@ -2,34 +2,48 @@ import express from "express";
 import { createServer, Server } from "http";
 import webSocket, { Socket } from "socket.io";
 import { ChatEvent } from "./model/ChatEvent";
+import { roomType } from "./types/Chat";
 
 let io: webSocket.Server;
 
-const rooms = new Map<string, roomType[]>();
-let chatHistory: messageType[];
+let roomList: Map<string, roomType> | undefined;
 
 export const initWebSocket = (server: Server): void => {
+  // 소켓 옵션
   io = new webSocket.Server(server, {
     path: "/socketchat",
     serveClient: false,
     allowEIO3: true,
     cors: { origin: true, credentials: true },
   });
+
+  // 소켓 서버 접속시
   io.on(ChatEvent.CONNECTION, (socket: webSocket.Socket) => {
-    console.log("conntected: ", socket.id);
-    console.log("entered:", socket.handshake.query.user);
+    // Manager to User에 해당된 소캣 채팅 초기화
     const userId = socket.handshake.query.user;
-    // Get Chat History init
-    if (rooms.get(`${userId}`) === undefined) {
-      rooms.set(`${userId}`, []);
-    } else chatHistory = rooms.get(`${userId}`);
-    io.to(`${userId}`).emit(ChatEvent.CHAT_HISTROY, chatHistory);
     socket.join(`${userId}`);
+    if (roomList?.get(`${userId}`) === undefined) {
+      roomList?.set(`${userId}`, {
+        managerId: "test", // 이부분은 DB 연결시 따로 추가로 작업해야함.
+        user: `userId`,
+        messages: [],
+      });
+    }
+    const room = roomList?.get(`${userId}`);
+    io.to(`${userId}`).emit(ChatEvent.CHAT_HISTROY, room);
 
     socket.on(ChatEvent.NEW_MESSAGE, (message: string) => {
       console.log("New Message : ", message);
-      //Verify 확인해 되면
-      io.to(`${userId}`).emit(ChatEvent.NEW_MESSAGE, message);
+      const mes = {
+        context: message,
+        isImage: false,
+        user: `${userId}`,
+        date: "test date",
+      };
+
+      room?.messages.push(mes);
+
+      io.to(`${userId}`).emit(ChatEvent.NEW_MESSAGE, mes);
     });
 
     //TODO: Join 되기 전 추가적으로 DB와 함꼐 조회해서

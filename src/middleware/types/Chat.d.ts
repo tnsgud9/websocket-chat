@@ -1,10 +1,10 @@
-type roomType = {
+export type roomType = {
   managerId: string;
-  users: string[];
+  user: string;
   messages: messageType[];
 };
 
-type messageType = {
+export type messageType = {
   context: string;
   isImage: boolean;
   user: string;
