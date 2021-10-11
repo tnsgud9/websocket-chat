@@ -2,11 +2,10 @@ import express from "express";
 import { createServer, Server } from "http";
 import webSocket, { Socket } from "socket.io";
 import { ChatEvent } from "./model/ChatEvent";
-import { roomType } from "./types/Chat";
+import { ChatHistoryType, roomType } from "./types/Chat";
 
 let io: webSocket.Server;
-
-let roomList: Map<string, roomType> | undefined;
+let rooms: Map<string, roomType> | undefined;
 
 export const initWebSocket = (server: Server): void => {
   // 소켓 옵션
@@ -17,42 +16,52 @@ export const initWebSocket = (server: Server): void => {
     cors: { origin: true, credentials: true },
   });
 
-  // 소켓 서버 접속시
   io.on(ChatEvent.CONNECTION, (socket: webSocket.Socket) => {
     // Manager to User에 해당된 소캣 채팅 초기화
-    const userId = socket.handshake.query.user;
-    socket.join(`${userId}`);
-    if (roomList?.get(`${userId}`) === undefined) {
-      roomList?.set(`${userId}`, {
-        managerId: "test", // 이부분은 DB 연결시 따로 추가로 작업해야함.
-        user: `userId`,
-        messages: [],
+    const userName = socket.handshake.query.user as string;
+    const managerName = socket.handshake.query.manager as string;
+    const roomName = socket.handshake.query.room as string;
+        
+    if (rooms?.get(roomName) === undefined) {
+      rooms?.set(roomName, {
+        managerId: managerName, 
+        user: userName,
+        messages: [],  // 이부분은 DB 연결시 따로 추가로 작업해야함.
       });
     }
-    const room = roomList?.get(`${userId}`);
-    io.to(`${userId}`).emit(ChatEvent.CHAT_HISTROY, room);
+    socket.join(roomName);
+    const room = rooms?.get(roomName);
+    
 
-    socket.on(ChatEvent.NEW_MESSAGE, (message: string) => {
+    socket.on(ChatEvent.CHAT_HISTROY, () => {
+        const currentDate = new Date();
+        const perviousDate = Object.assign(currentDate) as Date; 
+        perviousDate.setMonth(-1);
+        // 이부분은 DB 연결시 따로 추가로 작업해야함.
+        socket.emit(ChatEvent.CHAT_HISTROY,{
+            manager: managerName,
+            user: userName,
+            messages: room?.messages,
+            startDate: currentDate.toString(),
+            endDate: perviousDate.toString(),
+        } as ChatHistoryType);
+    });
+
+    io.to(roomName).emit(ChatEvent.CHAT_HISTROY, room);
+
+
+    socket.on(ChatEvent.SEND_MESSAGE, (message: string) => {
       console.log("New Message : ", message);
       const mes = {
         context: message,
         isImage: false,
-        user: `${userId}`,
-        date: "test date",
+        user: ,
+        date: new Date(),
       };
 
       room?.messages.push(mes);
+      // 이부분은 DB 연결시 따로 추가로 작업해야함.
 
-      io.to(`${userId}`).emit(ChatEvent.NEW_MESSAGE, mes);
+      io.to(`${roomName}`).emit(ChatEvent.NEW_MESSAGE, mes);
     });
-
-    //TODO: Join 되기 전 추가적으로 DB와 함꼐 조회해서
-    //      해당 user가 있는지 검증해야함.
-
-    // TODO: 위 해당 검증후 DB에 접속하여
-    //       이전 기록에 대한 채팅 내용을 모두 전달 해줘야함.
-  });
-  io.on(ChatEvent.DISCONNECT, (socket: webSocket.Socket) => {
-    console.log("DISCONNECT: ", socket.id);
-  });
 };
